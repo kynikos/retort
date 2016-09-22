@@ -38,7 +38,7 @@ def debug(display=False, logdir=None, context=5, format='html'):
     # TODO: Does cgitb rotate the log files, or do they have to be
     #       cleaned up explicitly?
     cgitb.enable(display=1 if display else 0, logdir=logdir,
-             context=context, format=format)
+                 context=context, format=format)
 
 
 class Request(object):
@@ -101,16 +101,16 @@ class Response(object):
         # cgi.test() also prints the header, so it must come first
         cgi.test()
 
-        html = '<h3>Python sys.version</h3>'
-        html += '<div>{0}</div>'.format(sys.version)
+        html = '<h3>Python sys.version</h3>\n'
+        html += '<div>{0}</div>\n'.format(sys.version)
 
-        html += '<h3>PYTHONPATH:</h3>\n<ul>'
+        html += '<h3>PYTHONPATH:</h3>\n<ul>\n'
         for path in sys.path:
-            html += "<li>{0}</li>".format(path)
-        html += '</ul>'
+            html += "<li>{0}</li>\n".format(path)
+        html += '</ul>\n'
 
-        html += '<h3>Python platform.platform()</h3>'
-        html += '<div>{0}</div>'.format(platform.platform())
+        html += '<h3>Python platform.platform()</h3>\n'
+        html += '<div>{0}</div>\n'.format(platform.platform())
 
         print(html)
 
