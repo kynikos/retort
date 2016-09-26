@@ -66,7 +66,8 @@ class Response(object):
     DEFAULT_STATUS = 200
     DEFAULT_CONTENT_TYPE = 'text/html'
 
-    def __init__(self):
+    def __init__(self, status=DEFAULT_STATUS,
+                 content_type=DEFAULT_CONTENT_TYPE):
         """
         Set up and send the HTTP response, headers and body.
         """
@@ -78,8 +79,8 @@ class Response(object):
         #       remove_header() ... methods to ensure that users enter tuples
         #       or lists as values, not simple strings
         self.headers = OrderedDict()
-        self.set_status(self.DEFAULT_STATUS)
-        self.set_content_type(self.DEFAULT_CONTENT_TYPE)
+        self.set_status(status)
+        self.set_content_type(content_type)
 
     def set_status(self, code):
         self.headers['Status'] = (http_status_codes[code], )
@@ -126,6 +127,8 @@ class Response(object):
 
 
 class CgigC(object):
+    DEFAULT_RESPONSE = Response
+
     @staticmethod
     def debug():
         """
@@ -168,7 +171,8 @@ Content-type: text/plain
     #     cgitb.enable(display=1 if display else 0, logdir=logdir,
     #                  context=context, format=format)
 
-    def __init__(self, keep_blank_form_values=False):
+    def __init__(self, keep_blank_form_values=False,
+                 default_response=DEFAULT_RESPONSE):
         """
         The main application.
         """
@@ -177,7 +181,7 @@ Content-type: text/plain
 
         self.request = _Request(keep_blank_form_values)
 
-    def route(self, url, ResponseClass=Response):
+    def route(self, url, ResponseClass=DEFAULT_RESPONSE, **response_kwargs):
         """
         Decorator that tests the url and possibly immediately calls the
         function and exits the program, thus preventing any following code,
@@ -196,11 +200,13 @@ Content-type: text/plain
         def decorator(function):
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
-            self._serve(url, inner, ResponseClass=ResponseClass)
+            self._serve(url, inner, ResponseClass=ResponseClass,
+                        **response_kwargs)
             return inner
         return decorator
 
-    def serve(self, url, resource, ResponseClass=Response):
+    def serve(self, url, resource, ResponseClass=DEFAULT_RESPONSE,
+              **response_kwargs):
         """
         Test a set of urls in the given order and possibly immediately run the
         respective resource's 'make' function or method, or call the resource
@@ -223,12 +229,13 @@ Content-type: text/plain
             function = resource.make
         except AttributeError:
             function = resource
-        self._serve(url, function, ResponseClass=ResponseClass)
+        self._serve(url, function, ResponseClass=ResponseClass,
+                    **response_kwargs)
 
-    def _serve(self, url, function, ResponseClass):
+    def _serve(self, url, function, ResponseClass, **response_kwargs):
         testres = url.test(self)
         if testres:
-            self.response = ResponseClass()
+            self.response = ResponseClass(**response_kwargs)
             body = function(self, *url.args, **url.kwargs)
             self.response.send(body)
             # No need to test the remaining rules
