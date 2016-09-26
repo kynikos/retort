@@ -129,8 +129,11 @@ class CgigC(object):
 
         def display_uncaught_exception(type_, value, traceback):
             import traceback as _m_traceback
-            # TODO: Set a "500 Internal Server Error" status
-            print('Content-type: text/plain\n')
+            # Don't rely on the _Response class or any other code in this
+            # module, we're trying to debug it after all
+            print('''Status: 500 Internal Server Error
+Content-type: text/plain
+''')
             _m_traceback.print_exception(type_, value, traceback,
                                          file=sys.stdout)
             sys.exit(1)
