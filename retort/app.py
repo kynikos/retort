@@ -93,7 +93,8 @@ class Response(object):
         for name, values in self.headers.items():
             for value in values:
                 headers.append(': '.join((name, value)))
-        return '\n'.join(headers)
+        # Maximize client compatibility with \r\n
+        return '\r\n'.join(headers)
 
     def test(self):
         """
@@ -123,7 +124,8 @@ class Response(object):
         return html
 
     def send(self, body):
-        print(self._compile_headers(), body, sep='\n\n', end='')
+        # Maximize client compatibility with \r\n
+        print(self._compile_headers(), body, sep='\r\n\r\n', end='')
 
 
 class Retort(object):
