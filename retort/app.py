@@ -85,6 +85,12 @@ class Response(object):
         #       remove_header() ... methods to ensure that users enter tuples
         #       or lists as values, not simple strings
         self.headers = OrderedDict()
+        # TODO: Allow setting default cookies or cookie parameters
+        #       Especially set default 'Domain' and 'Path' attributes
+        #       Also make it easy to set 'Expires' and 'Max-Age' attributes
+        #       https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
+        # TODO: Write higher-level functions to manage sessions through cookies
+        #       http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
         self.cookies = SimpleCookie()
         self.set_status(status)
         self.set_content_type(content_type)
