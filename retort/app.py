@@ -187,16 +187,17 @@ Content-type: text/plain
     #                  context=context, format=format)
 
     def __init__(self, keep_blank_form_values=False,
-                 default_response=DEFAULT_RESPONSE):
+                 DefaultResponseClass=DEFAULT_RESPONSE):
         """
         The main application.
         """
         # TODO: Implement logging for use in production
         # TODO: How to address HTTP errors and redirects?
 
+        self.DefaultResponseClass = DefaultResponseClass
         self.request = _Request(keep_blank_form_values)
 
-    def route(self, url, ResponseClass=DEFAULT_RESPONSE, **response_kwargs):
+    def route(self, url, ResponseClass=None, **response_kwargs):
         """
         Decorator that tests the url and possibly immediately calls the
         function and exits the program, thus preventing any following code,
@@ -220,8 +221,7 @@ Content-type: text/plain
             return inner
         return decorator
 
-    def serve(self, url, resource, ResponseClass=DEFAULT_RESPONSE,
-              **response_kwargs):
+    def serve(self, url, resource, ResponseClass=None, **response_kwargs):
         """
         Test a set of urls in the given order and possibly immediately run the
         respective resource's 'make' function or method, or call the resource
@@ -250,6 +250,7 @@ Content-type: text/plain
     def _serve(self, url, function, ResponseClass, **response_kwargs):
         testres = url.test(self)
         if testres:
+            ResponseClass = ResponseClass or self.DefaultResponseClass
             self.response = ResponseClass(**response_kwargs)
             body = function(self, *url.args, **url.kwargs)
             self.response.send(body)
