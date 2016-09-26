@@ -29,6 +29,9 @@ from __future__ import (absolute_import, division,
 import cgi
 import sys
 import os
+from collections import OrderedDict
+
+from .data import http_status_codes
 
 
 class _Request(object):
@@ -59,40 +62,52 @@ class _Request(object):
         return html
 
 
-class _Response(object):
-    DEFAULT_HEADERS = {'Status': '200 OK',
-                       'Content-type': 'text/html'}
+class Response(object):
+    DEFAULT_STATUS = 200
+    DEFAULT_CONTENT_TYPE = 'text/html'
 
     def __init__(self):
         """
         Set up and send the HTTP response, headers and body.
         """
-        self.set_headers(self.DEFAULT_HEADERS.copy())
+        # In theory the order of headers shouldn't count, but it depends on the
+        # clients, so be safe here and use OrderedDict
+        # Note that some header names can be repeated, so the values of the
+        # dictionary have to be tuples or lists, not simple strings
+        # TODO: Implement generic set_header(), get_header(), add_header(),
+        #       remove_header() ... methods to ensure that users enter tuples
+        #       or lists as values, not simple strings
+        self.headers = OrderedDict()
+        self.set_status(self.DEFAULT_STATUS)
+        self.set_content_type(self.DEFAULT_CONTENT_TYPE)
 
-    def set_headers(self, headers):
-        # TODO: Use an OrderedDict?
-        #       Is it allowed to have two headers with the same name?
-        self.headers = headers
+    def set_status(self, code):
+        self.headers['Status'] = (http_status_codes[code], )
 
-        # TODO: Implement get_headers(), update_headers()/add_headers(),
-        #       remove_headers()
+    def set_content_type(self, content_type):
+        self.headers['Content-type'] = (content_type, )
 
-    @staticmethod
-    def test():
+    def _compile_headers(self):
+        headers = []
+        for name, values in self.headers.items():
+            for value in values:
+                headers.append(': '.join((name, value)))
+        return '\n'.join(headers)
+
+    def test(self):
         """
         Output cgi.test() and other information.
-
-        Static method, it prints its own headers.
         """
         import platform
 
-        # cgi.test() prints directly, including the headers, so it must come
-        # first
-        # TODO: Find a way to return the content instead of printing it
-        #       directly, like any other response function
+        # TODO: cgi.test() prints directly, including the headers, so it must
+        #       come first; the normal headers have to be emptied; find a way
+        #       to return the content of cgi.test() instead of printing it
+        #       directly, like any other response function; note that the rest
+        #       of the body is already normally returned
+        self.headers.clear()
         cgi.test()
 
-        # Note that from here on the content is normally returned
         html = '<h3>Python sys.version</h3>\n'
         html += '<div>{0}</div>\n'.format(sys.version)
 
@@ -106,10 +121,8 @@ class _Response(object):
 
         return html
 
-    def _send(self, body):
-        compiled_headers = '\n'.join(': '.join((name, value))
-                                     for name, value in self.headers.items())
-        print(compiled_headers, body, sep='\n\n', end='')
+    def send(self, body):
+        print(self._compile_headers(), body, sep='\n\n', end='')
 
 
 class CgigC(object):
@@ -164,7 +177,7 @@ Content-type: text/plain
 
         self.request = _Request(keep_blank_form_values)
 
-    def route(self, url):
+    def route(self, url, ResponseClass=Response):
         """
         Decorator that tests the url and possibly immediately calls the
         function and exits the program, thus preventing any following code,
@@ -183,11 +196,11 @@ Content-type: text/plain
         def decorator(function):
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
-            self._serve(url, inner)
+            self._serve(url, inner, ResponseClass=ResponseClass)
             return inner
         return decorator
 
-    def serve(self, url, resource):
+    def serve(self, url, resource, ResponseClass=Response):
         """
         Test a set of urls in the given order and possibly immediately run the
         respective resource's 'make' function or method, or call the resource
@@ -210,14 +223,14 @@ Content-type: text/plain
             function = resource.make
         except AttributeError:
             function = resource
-        self._serve(url, function)
+        self._serve(url, function, ResponseClass=ResponseClass)
 
-    def _serve(self, url, function):
+    def _serve(self, url, function, ResponseClass):
         testres = url.test(self)
         if testres:
-            self.response = _Response()
+            self.response = ResponseClass()
             body = function(self, *url.args, **url.kwargs)
-            self.response._send(body)
+            self.response.send(body)
             # No need to test the remaining rules
             sys.exit(0)
 
