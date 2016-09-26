@@ -23,12 +23,17 @@ from __future__ import (absolute_import, division,
 # TODO: Test builtins.super
 # from builtins import super
 
+import sys
+import os
 # https://docs.python.org/2.6/library/internet.html
 # https://docs.python.org/2.6/library/cgi.html
 # http://www.tutorialspoint.com/python/python_cgi_programming.htm
 import cgi
-import sys
-import os
+# https://docs.python.org/2/library/cookie.html
+# https://pymotw.com/2/Cookie/
+# http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
+# https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
+from Cookie import SimpleCookie
 from collections import OrderedDict
 
 from .data import http_status_codes
@@ -40,6 +45,7 @@ class _Request(object):
         Store the HTTP request data, e.g. GET or POST data.
         """
         self.redirect_url = os.environ['REDIRECT_URL']
+        self.cookies = SimpleCookie(os.environ['HTTP_COOKIE'])
 
         # FieldStorage must be instantiated only once
         self.form = cgi.FieldStorage(
@@ -79,6 +85,7 @@ class Response(object):
         #       remove_header() ... methods to ensure that users enter tuples
         #       or lists as values, not simple strings
         self.headers = OrderedDict()
+        self.cookies = SimpleCookie()
         self.set_status(status)
         self.set_content_type(content_type)
 
@@ -88,11 +95,17 @@ class Response(object):
     def set_content_type(self, content_type):
         self.headers['Content-type'] = (content_type, )
 
+    def set_cookie(self, name, value, **attributes):
+        self.cookies[name] = value
+        for attr_name, attr_value in attributes.items():
+            self.cookies[name][attr_name] = attr_value
+
     def _compile_headers(self):
         headers = []
         for name, values in self.headers.items():
             for value in values:
                 headers.append(': '.join((name, value)))
+        headers.append(self.cookies.output())
         # Maximize client compatibility with \r\n
         return '\r\n'.join(headers)
 
