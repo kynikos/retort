@@ -167,12 +167,19 @@ Content-type: text/plain
 
         Example:
 
-            class HelloWorld(object):
+            import hello_world_module
+
+            def hello_world_function(app):
+                return 'Hello World!'
+
+            class HelloWorldClass(object):
                 def make(self, app):
                     return 'Hello World!'
 
-
-            app.serve(UrlExact('/hello_world.htm'), HelloWorld())
+            app.serve(UrlExact('/hello_world_module.htm'), hello_world_module)
+            app.serve(UrlExact('/hello_world_function.htm'),
+                               hello_world_function)
+            app.serve(UrlExact('/hello_world_class.htm'), HelloWorldClass())
         """
         try:
             function = resource.make
