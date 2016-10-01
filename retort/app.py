@@ -35,6 +35,7 @@ import cgi
 # https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
 from Cookie import SimpleCookie
 
+from .route import Diversion, Handler
 from .session import NullSession
 from .response import Response
 
@@ -114,15 +115,18 @@ Content-type: text/plain
     #     cgitb.enable(display=1 if display else 0, logdir=logdir,
     #                  context=context, format=format)
 
-    def __init__(self, keep_blank_form_values=False, default_session=None,
+    def __init__(self, routes=[], handlers={}, keep_blank_form_values=False,
+                 default_diversion=Diversion(404), default_session=None,
                  default_response=None):
         """
         The main application.
         """
         # TODO: Implement logging for use in production
-        # TODO: How to address HTTP errors and redirects?
 
+        self.routes = routes
+        self.handlers = handlers
         self.request = _Request(keep_blank_form_values)
+        self.default_diversion = default_diversion
         self.set_default_session(default_session or self.DEFAULT_SESSION())
         self.set_default_response(default_response or self.DEFAULT_RESPONSE())
 
@@ -132,11 +136,9 @@ Content-type: text/plain
     def set_default_response(self, response):
         self._default_response = response
 
-    def route(self, url, session=None, response=None):
+    def route(self, RouteClass, *route_args, **route_kwargs):
         """
-        Decorator that tests the url and possibly immediately calls the
-        function and exits the program, thus preventing any following code,
-        including further routes, from being even tested.
+        Route to the decorated function.
 
         Designed to be used in projects that mostly rely on non-Python template
         files, such as Jinja, and only use short functions to set the templates
@@ -144,23 +146,25 @@ Content-type: text/plain
 
         Example:
 
-            @app.route(UrlExact('/hello_world.htm'))
+            @app.route(RouteExact, '/hello_world.htm')
             def hello_world(app):
                 return 'Hello World!'
         """
         def decorator(function):
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
-            self._serve(url, inner, session, response)
+            route_args.append(inner)
+            self.routes.append(RouteClass(*route_args, **route_kwargs))
+            # TODO: Also register the routes in self.handlers; as an alias,
+            #       maybe use the name of their function (as in Flask), or
+            #       allow an optional 'alias' kwarg
             return inner
         return decorator
 
-    def serve(self, url, resource, session=None, response=None):
+    def add_routes(self, *routes, **kwargs):
         """
-        Test a set of urls in the given order and possibly immediately run the
-        respective resource's 'make' function or method, or call the resource
-        directly, then exit the program, thus preventing any following code,
-        including the next rules, from being even tested.
+        Route to the handler's 'make' function or method, or call the handler
+        directly.
 
         Designed to be used in projects that mostly construct the pages using
         Python code, relying on several functions, classes or modules.
@@ -176,31 +180,48 @@ Content-type: text/plain
                 def make(self, app):
                     return 'Hello World!'
 
-            app.serve(UrlExact('/hello_world_module.htm'), hello_world_module)
-            app.serve(UrlExact('/hello_world_function.htm'),
-                               hello_world_function)
-            app.serve(UrlExact('/hello_world_class.htm'), HelloWorldClass())
+            app.add_routes(
+                RouteExact('/hello_world_module.htm', hello_world_module),
+                RouteExact('/hello_world_function.htm', hello_world_function),
+                RouteExact('/hello_world_class.htm', HelloWorldClass()),
+            )
         """
-        try:
-            function = resource.make
-        except AttributeError:
-            function = resource
-        self._serve(url, function, session, response)
+        # Python 2 must be supported, so the following definition can't be
+        # used...
+        # add_routes(self, *routes, default_diversion=None):
+        default_diversion = kwargs.pop('default_diversion', None)
 
-    def _serve(self, url, function, session, response):
-        testres = url.test(self)
-        if testres:
-            self.response = response or self._default_response
-            self.response.post_init(self)
+        self.routes.extend(routes)
 
-            # Store the response *before* storing the session, since the
-            # session may need to set the response headers
+        # TODO: Also register the routes in self.handlers; as an alias, maybe
+        #       use the name of their function (as in Flask), or allow an
+        #       optional 'alias' kwarg
 
-            self.session = session or self._default_session
-            self.session.process_request(self)
+        if default_diversion:
+            # default_diversion can also be set in the constructor
+            self.default_diversion = default_diversion
 
-            body = function(self, *url.args, **url.kwargs)
-            self.response.send(body)
+    def handler(self, alias, **handler_kwargs):
+        def decorator(function):
+            def inner(*args, **kwargs):
+                return function(*args, **kwargs)
+            self.handlers[alias] = Handler(inner, **handler_kwargs)
+            return inner
+        return decorator
 
-            # No need to test the remaining url rules
-            sys.exit(0)
+    def add_handlers(self, alias_to_handler):
+        """
+        Handlers are like routes, but they can only be called by divert(), i.e.
+        they are not tested against any url.
+        """
+        self.handlers.update(alias_to_handler)
+
+    def divert(self, alias, *args, **kwargs):
+        self.handlers[alias].serve(self, *args, **kwargs)
+
+    def run(self):
+        for route in self.routes:
+            # If a route responds, it will exit the appliction by default, so
+            # no need to break here
+            route.attempt(self)
+        self.default_diversion.serve(self)
