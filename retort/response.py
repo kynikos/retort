@@ -115,6 +115,10 @@ class Response(object):
 
         return html
 
-    def send(self, body):
+    def serve(self, body, exit=True):
         # Maximize client compatibility with \r\n
         print(self._compile_headers(), body, sep='\r\n\r\n', end='')
+
+        if exit:
+            # Don't test the remaining routes
+            sys.exit(0)
