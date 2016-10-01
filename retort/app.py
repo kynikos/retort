@@ -162,7 +162,7 @@ Content-type: text/plain
         Example:
 
             class HelloWorld(object):
-                def serve(self, app):
+                def make(self, app):
                     return 'Hello World!'
 
 
