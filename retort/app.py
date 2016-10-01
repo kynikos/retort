@@ -123,8 +123,14 @@ Content-type: text/plain
         # TODO: How to address HTTP errors and redirects?
 
         self.request = _Request(keep_blank_form_values)
-        self._default_session = default_session or self.DEFAULT_SESSION()
-        self._default_response = default_response or self.DEFAULT_RESPONSE()
+        self.set_default_session(default_session or self.DEFAULT_SESSION())
+        self.set_default_response(default_response or self.DEFAULT_RESPONSE())
+
+    def set_default_session(self, session):
+        self._default_session = session
+
+    def set_default_response(self, response):
+        self._default_response = response
 
     def route(self, url, session=None, response=None):
         """
