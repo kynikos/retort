@@ -34,9 +34,9 @@ import cgi
 # http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
 # https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
 from Cookie import SimpleCookie
-from collections import OrderedDict
 
-from .data import http_status_codes
+from .session import NullSession
+from .response import Response
 
 
 class _Request(object):
@@ -68,86 +68,8 @@ class _Request(object):
         return html
 
 
-class Response(object):
-    DEFAULT_STATUS = 200
-    DEFAULT_CONTENT_TYPE = 'text/html'
-
-    def __init__(self, status=DEFAULT_STATUS,
-                 content_type=DEFAULT_CONTENT_TYPE):
-        """
-        Set up and send the HTTP response, headers and body.
-        """
-        # In theory the order of headers shouldn't count, but it depends on the
-        # clients, so be safe here and use OrderedDict
-        # Note that some header names can be repeated, so the values of the
-        # dictionary have to be tuples or lists, not simple strings
-        # TODO: Implement generic set_header(), get_header(), add_header(),
-        #       remove_header() ... methods to ensure that users enter tuples
-        #       or lists as values, not simple strings
-        self.headers = OrderedDict()
-        # TODO: Allow setting default cookies or cookie parameters
-        #       Especially set default 'Domain' and 'Path' attributes
-        #       Also make it easy to set 'Expires' and 'Max-Age' attributes
-        #       https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
-        # TODO: Write higher-level functions to manage sessions through cookies
-        #       http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
-        self.cookies = SimpleCookie()
-        self.set_status(status)
-        self.set_content_type(content_type)
-
-    def set_status(self, code):
-        self.headers['Status'] = (http_status_codes[code], )
-
-    def set_content_type(self, content_type):
-        self.headers['Content-type'] = (content_type, )
-
-    def set_cookie(self, name, value, **attributes):
-        self.cookies[name] = value
-        for attr_name, attr_value in attributes.items():
-            self.cookies[name][attr_name] = attr_value
-
-    def _compile_headers(self):
-        headers = []
-        for name, values in self.headers.items():
-            for value in values:
-                headers.append(': '.join((name, value)))
-        headers.append(self.cookies.output())
-        # Maximize client compatibility with \r\n
-        return '\r\n'.join(headers)
-
-    def test(self):
-        """
-        Output cgi.test() and other information.
-        """
-        import platform
-
-        # TODO: cgi.test() prints directly, including the headers, so it must
-        #       come first; the normal headers have to be emptied; find a way
-        #       to return the content of cgi.test() instead of printing it
-        #       directly, like any other response function; note that the rest
-        #       of the body is already normally returned
-        self.headers.clear()
-        cgi.test()
-
-        html = '<h3>Python sys.version</h3>\n'
-        html += '<div>{0}</div>\n'.format(sys.version)
-
-        html += '<h3>PYTHONPATH:</h3>\n<ul>\n'
-        for path in sys.path:
-            html += "<li>{0}</li>\n".format(path)
-        html += '</ul>\n'
-
-        html += '<h3>Python platform.platform()</h3>\n'
-        html += '<div>{0}</div>\n'.format(platform.platform())
-
-        return html
-
-    def send(self, body):
-        # Maximize client compatibility with \r\n
-        print(self._compile_headers(), body, sep='\r\n\r\n', end='')
-
-
 class Retort(object):
+    DEFAULT_SESSION = NullSession
     DEFAULT_RESPONSE = Response
 
     @staticmethod
@@ -192,18 +114,19 @@ Content-type: text/plain
     #     cgitb.enable(display=1 if display else 0, logdir=logdir,
     #                  context=context, format=format)
 
-    def __init__(self, keep_blank_form_values=False,
-                 DefaultResponseClass=DEFAULT_RESPONSE):
+    def __init__(self, keep_blank_form_values=False, default_session=None,
+                 default_response=None):
         """
         The main application.
         """
         # TODO: Implement logging for use in production
         # TODO: How to address HTTP errors and redirects?
 
-        self.DefaultResponseClass = DefaultResponseClass
         self.request = _Request(keep_blank_form_values)
+        self._default_session = default_session or self.DEFAULT_SESSION()
+        self._default_response = default_response or self.DEFAULT_RESPONSE()
 
-    def route(self, url, ResponseClass=None, **response_kwargs):
+    def route(self, url, session=None, response=None):
         """
         Decorator that tests the url and possibly immediately calls the
         function and exits the program, thus preventing any following code,
@@ -222,12 +145,11 @@ Content-type: text/plain
         def decorator(function):
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
-            self._serve(url, inner, ResponseClass=ResponseClass,
-                        **response_kwargs)
+            self._serve(url, inner, session, response)
             return inner
         return decorator
 
-    def serve(self, url, resource, ResponseClass=None, **response_kwargs):
+    def serve(self, url, resource, session=None, response=None):
         """
         Test a set of urls in the given order and possibly immediately run the
         respective resource's 'make' function or method, or call the resource
@@ -250,36 +172,22 @@ Content-type: text/plain
             function = resource.make
         except AttributeError:
             function = resource
-        self._serve(url, function, ResponseClass=ResponseClass,
-                    **response_kwargs)
+        self._serve(url, function, session, response)
 
-    def _serve(self, url, function, ResponseClass, **response_kwargs):
+    def _serve(self, url, function, session, response):
         testres = url.test(self)
         if testres:
-            ResponseClass = ResponseClass or self.DefaultResponseClass
-            self.response = ResponseClass(**response_kwargs)
+            self.response = response or self._default_response
+            self.response.post_init(self)
+
+            # Store the response *before* storing the session, since the
+            # session may need to set the response headers
+
+            self.session = session or self._default_session
+            self.session.process_request(self)
+
             body = function(self, *url.args, **url.kwargs)
             self.response.send(body)
-            # No need to test the remaining rules
+
+            # No need to test the remaining url rules
             sys.exit(0)
-
-
-class _UrlTest(object):
-    def __init__(self):
-        super(_UrlTest, self).__init__()
-        self.args = ()
-        self.kwargs = {}
-
-
-class UrlDefault(_UrlTest):
-    def test(self, app):
-        return True
-
-
-class UrlExact(_UrlTest):
-    def __init__(self, url):
-        super(UrlExact, self).__init__()
-        self.url = url
-
-    def test(self, app):
-        return self.url == app.request.redirect_url
