@@ -70,7 +70,6 @@ class TokenJsonSession(Session):
         self.id = None
         self.data = None
         self.user = None
-        self.expiry = None
 
         if not self._identify() and self._unidentified_diversion:
             self._unidentified_diversion.serve()
@@ -141,7 +140,6 @@ class TokenJsonSession(Session):
         self.id = session_id
         self.data = session_data
         self.user = session_data['_user']
-        self.expiry = session_data['_expiry']
         return True
 
     def initiate(self, user, override=False, max_age=None):
@@ -168,7 +166,6 @@ class TokenJsonSession(Session):
         self.id = session_id
         self.data = session_data
         self.user = user
-        self.expiry = session_data['_expiry']
 
         self._write_data()
 
@@ -182,6 +179,5 @@ class TokenJsonSession(Session):
         self.id = None
         self.data = None
         self.user = None
-        self.expiry = None
 
         self._write_data()
