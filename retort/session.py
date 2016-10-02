@@ -72,7 +72,7 @@ class TokenJsonSession(Session):
         self.user = None
         self.expiry = None
 
-        if not self.identify() and self._unidentified_diversion:
+        if not self._identify() and self._unidentified_diversion:
             self._unidentified_diversion.serve()
 
         # TODO: Optionally renew the session id and/or expiry date
@@ -122,8 +122,8 @@ class TokenJsonSession(Session):
             except:
                 raise UnwritableDatabaseError()
 
-    def identify(self):
         # TODO: Set proper response headers
+    def _identify(self):
         try:
             session_id = self.app.request.cookies[self._cookie_name]
         except KeyError:
