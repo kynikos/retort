@@ -29,12 +29,8 @@ import os
 # https://docs.python.org/2.6/library/cgi.html
 # http://www.tutorialspoint.com/python/python_cgi_programming.htm
 import cgi
-# https://docs.python.org/2/library/cookie.html
-# https://pymotw.com/2/Cookie/
-# http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
-# https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
-from Cookie import SimpleCookie
 
+from .cookie import Cookie
 from .route import Diversion, Handler
 from .session import NullSession
 from .response import Response
@@ -46,7 +42,7 @@ class _Request(object):
         Store the HTTP request data, e.g. GET or POST data.
         """
         self.redirect_url = os.environ['REDIRECT_URL']
-        self.cookies = SimpleCookie(os.environ['HTTP_COOKIE'])
+        self.cookies = Cookie(os.environ['HTTP_COOKIE'])
 
         # FieldStorage must be instantiated only once
         self.form = cgi.FieldStorage(

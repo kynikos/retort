@@ -26,8 +26,8 @@ from __future__ import (absolute_import, division,
 import sys
 import cgi
 from collections import OrderedDict
-from Cookie import SimpleCookie
 
+from .cookie import Cookie
 from .data import http_status_codes
 
 
@@ -60,9 +60,7 @@ class Response(object):
         #       Especially set default 'Domain' and 'Path' attributes
         #       Also make it easy to set 'Expires' and 'Max-Age' attributes
         #       https://en.wikipedia.org/wiki/HTTP_cookie#Cookie_attributes
-        # TODO: Write higher-level functions to manage sessions through cookies
-        #       http://jayconrod.com/posts/17/how-to-use-http-cookies-in-python
-        self.cookies = SimpleCookie()
+        self.cookies = Cookie()
         self.set_status(self.status)
         self.set_content_type(self.content_type)
 
@@ -73,11 +71,6 @@ class Response(object):
     def set_content_type(self, content_type):
         self.content_type = content_type
         self.headers['Content-type'] = (content_type, )
-
-    def set_cookie(self, name, value, **attributes):
-        self.cookies[name] = value
-        for attr_name, attr_value in attributes.items():
-            self.cookies[name][attr_name] = attr_value
 
     def _compile_headers(self):
         headers = []
