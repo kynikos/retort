@@ -38,17 +38,23 @@ class NullSession(Session):
 
 
 class TokenJsonSession(Session):
-    def __init__(self, db_path, max_age, cookie_name='RetortSessionID',
-                 unidentified_diversion=None):
+    def __init__(self, db_path, domain, lifespan, path='/', secure=True,
+                 httponly=True, cookie_name='RetortSessionID',
+                 unidentified_diversion=None, extend_session=True):
         # For performance, do only what's strictly necessary to configure
         # the object, and leave everything else to process_request, since
         # another session object may be used depending on the matched url,
         # so this would become useless
         super(TokenJsonSession, self).__init__()
         self._dbpath = db_path
-        self._max_age = max_age
+        self._cookie_domain = domain
+        self._cookie_lifespan = lifespan
+        self._cookie_path = path
+        self._cookie_secure = secure
+        self._cookie_httponly = httponly
         self._cookie_name = cookie_name
         self._unidentified_diversion = unidentified_diversion
+        self.extend_session = extend_session
 
     def process_request(self, app):
         # NullSession is the default, don't always import unneeded modules
@@ -73,8 +79,6 @@ class TokenJsonSession(Session):
 
         if not self._identify() and self._unidentified_diversion:
             self._unidentified_diversion.serve()
-
-        # TODO: Optionally renew the session id and/or expiry date
 
     def _read_data(self, overwrite=True):
         try:
@@ -121,7 +125,15 @@ class TokenJsonSession(Session):
             except:
                 raise UnwritableDatabaseError()
 
-        # TODO: Set proper response headers
+    def _set_cookie(self, session_id, lifespan=None):
+        return self.app.response.cookies.add(
+                    self._cookie_name, session_id,
+                    domain=self._cookie_domain,
+                    path=self._cookie_path,
+                    lifespan=lifespan or self._cookie_lifespan,
+                    secure=self._cookie_secure,
+                    httponly=self._cookie_httponly)
+
     def _identify(self):
         try:
             session_id = self.app.request.cookies[self._cookie_name]
@@ -133,17 +145,24 @@ class TokenJsonSession(Session):
         except KeyError:
             return False
 
-        if datetime.strptime(session_data['_expiry'],
-                             '%Y-%m-%dT%H:%M:%S') < datetime.now():
+        # This compares the expiry date in the session file, not in the cookie,
+        # however the date format is exactly the same; also, the date is saved
+        # in GMT (i.e. UTC)
+        if datetime.strptime(session_data['_expires'],
+                             "%a, %d %b %Y %H:%M:%S %Z") < datetime.utcnow():
             return False
 
         self.id = session_id
         self.data = session_data
         self.user = session_data['_user']
+
+        if self.extend_session:
+            session_data['_expires'] = self._set_cookie(session_id)
+            self._write_data()
+
         return True
 
-    def initiate(self, user, override=False, max_age=None):
-        # TODO: Set proper response headers
+    def initiate(self, user, override=False, lifespan=None):
         if self.user:
             if override:
                 self.terminate()
@@ -151,9 +170,10 @@ class TokenJsonSession(Session):
                 raise ExistingSessionError()
 
         session_id = uuid.uuid4()
-        expiry = datetime.now() + timedelta(seconds=max_age or self._max_age)
-        session_data = {'_user': user, '_expiry': expiry.strftime(
-                                                        '%Y-%m-%dT%H:%M:%S')}
+
+        expires = self._set_cookie(session_id, lifespan=lifespan)
+
+        session_data = {'_user': user, '_expires': expires}
         self._dbdata['id_to_data'][session_id] = session_data
         self._dbdata['user_to_id'][user] = session_id
 
@@ -170,14 +190,16 @@ class TokenJsonSession(Session):
         self._write_data()
 
     def terminate(self):
-        # TODO: Unset response headers
         if not self.user:
             return False
 
         del self._dbdata['id_to_data'][self.id]
         del self._dbdata['user_to_id'][self.user]
+
         self.id = None
         self.data = None
         self.user = None
+
+        self.app.response.cookies.expire(self._cookie_name)
 
         self._write_data()
