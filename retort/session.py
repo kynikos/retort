@@ -38,7 +38,8 @@ class NullSession(Session):
 
 
 class TokenJsonSession(Session):
-    def __init__(self, db_path, max_age, cookie_name='RetortSessionID'):
+    def __init__(self, db_path, max_age, cookie_name='RetortSessionID',
+                 unidentified_diversion=None):
         # For performance, do only what's strictly necessary to configure
         # the object, and leave everything else to process_request, since
         # another session object may be used depending on the matched url,
@@ -47,6 +48,7 @@ class TokenJsonSession(Session):
         self._dbpath = db_path
         self._max_age = max_age
         self._cookie_name = cookie_name
+        self._unidentified_diversion = unidentified_diversion
 
     def process_request(self, app):
         # NullSession is the default, don't always import unneeded modules
@@ -70,8 +72,9 @@ class TokenJsonSession(Session):
         self.user = None
         self.expiry = None
 
-        self.identify()
-        # TODO: Execute default action if not authenticated
+        if not self.identify() and self._unidentified_diversion:
+            self._unidentified_diversion.serve()
+
         # TODO: Optionally renew the session id and/or expiry date
 
     def _read_data(self, overwrite=True):
@@ -139,6 +142,7 @@ class TokenJsonSession(Session):
         self.data = session_data
         self.user = session_data['_user']
         self.expiry = session_data['_expiry']
+        return True
 
     def initiate(self, user, override=False, max_age=None):
         # TODO: Set proper response headers
