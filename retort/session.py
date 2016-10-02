@@ -90,8 +90,8 @@ class TokenJsonSession(Session):
                 raise UnreadableDatabaseError()
         with dbf:
             fcntl.flock(dbf, fcntl.LOCK_EX)
-            # Add LOCK_NB to avoid blocking, but I don't think it's a good idea
-            # for this application...
+            # Add LOCK_NB to avoid blocking (and raise an exception), but I
+            # don't think it's a good idea for this application...
             # fcntl.flock(dbf, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
             try:
@@ -112,8 +112,8 @@ class TokenJsonSession(Session):
             raise UnwritableDatabaseError()
         with dbf:
             fcntl.flock(dbf, fcntl.LOCK_EX)
-            # Add LOCK_NB to avoid blocking, but I don't think it's a good idea
-            # for this application...
+            # Add LOCK_NB to avoid blocking (and raise an exception), but I
+            # don't think it's a good idea for this application...
             # fcntl.flock(dbf, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
             try:
