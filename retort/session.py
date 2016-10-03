@@ -40,7 +40,7 @@ class NullSession(Session):
 class TokenJsonSession(Session):
     def __init__(self, db_path, domain, lifespan, path='/', secure=True,
                  httponly=True, cookie_name='RetortSessionID',
-                 unidentified_diversion=None, extend_session=True):
+                 unidentified_diversion=None, autoextend=False):
         # For performance, do only what's strictly necessary to configure
         # the object, and leave everything else to process_request, since
         # another session object may be used depending on the matched url,
@@ -54,7 +54,7 @@ class TokenJsonSession(Session):
         self._cookie_httponly = httponly
         self._cookie_name = cookie_name
         self._unidentified_diversion = unidentified_diversion
-        self.extend_session = extend_session
+        self.autoextend = autoextend
 
     def process_request(self, app):
         # NullSession is the default, don't always import unneeded modules
@@ -152,7 +152,7 @@ class TokenJsonSession(Session):
         self.data = session_data
         self.user = session_data['_user']
 
-        if self.extend_session:
+        if self.autoextend:
             session_data['_expires'] = self._set_cookie(session_id)
             self._write_data()
 
