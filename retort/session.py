@@ -145,11 +145,7 @@ class TokenJsonSession(Session):
         except KeyError:
             return False
 
-        # This compares the expiry date in the session file, not in the cookie,
-        # however the date format is exactly the same; also, the date is saved
-        # in GMT (i.e. UTC)
-        if datetime.strptime(session_data['_expires'],
-                             "%a, %d %b %Y %H:%M:%S %Z") < datetime.utcnow():
+        if self._delete_expired_session(session_id):
             return False
 
         self.id = session_id
@@ -177,11 +173,16 @@ class TokenJsonSession(Session):
         self._dbdata['id_to_data'][session_id] = session_data
         self._dbdata['user_to_id'][user] = session_id
 
-        # TODO: This may be a good place to optionally check the database for
-        #       any expired sessions and clean them up; to optimize
-        #       performance, the loop could break at the first removed entry:
-        #       since this method is adding only one more entry, this system
-        #       would be effective at preventing memory leaks
+        # Check the database for one expired sessions and delete it (prevent
+        # memory leaks)
+        for session_id in self._dbdata['id_to_data']:
+            if self._delete_expired_session(session_id):
+                # Deleting one session is enough at preventing memory leaks,
+                # since initiate() only adds one more entry
+                # This is also extremely important, because otherwise it's not
+                # safe to loop on the keys of self._dbdata['id_to_data'] and
+                # remove them in the loop itself (I should make a list of them)
+                break
 
         self.id = session_id
         self.data = session_data
@@ -193,8 +194,7 @@ class TokenJsonSession(Session):
         if not self.user:
             return False
 
-        del self._dbdata['id_to_data'][self.id]
-        del self._dbdata['user_to_id'][self.user]
+        self._delete_session(self, self.id)
 
         self.id = None
         self.data = None
@@ -202,4 +202,19 @@ class TokenJsonSession(Session):
 
         self.app.response.cookies.expire(self._cookie_name)
 
+    def _delete_expired_session(self, session_id):
+        expires = self._dbdata['id_to_data'][session_id]['_expires']
+        # This compares the expiry date in the session file, not in the cookie,
+        # however the date format is exactly the same; also, the date is saved
+        # in GMT (i.e. UTC)
+        if datetime.strptime(expires, "%a, %d %b %Y %H:%M:%S %Z"
+                             ) < datetime.utcnow():
+            self._delete_session(session_id)
+            return True
+        return False
+
+    def _delete_session(self, session_id):
+        user = self._dbdata['id_to_data'][session_id]['_user']
+        del self._dbdata['id_to_data'][session_id]
+        del self._dbdata['user_to_id'][user]
         self._write_data()
