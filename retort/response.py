@@ -77,7 +77,11 @@ class Response(object):
         for name, values in self.headers.items():
             for value in values:
                 headers.append(': '.join((name, value)))
-        headers.append(self.cookies.output())
+        cookies = self.cookies.output()
+        # If no cookies are set this is an empty string which would add an
+        # unwanted empty line under the headers
+        if cookies:
+            headers.append(cookies)
         # Maximize client compatibility with \r\n
         return '\r\n'.join(headers)
 
