@@ -25,6 +25,7 @@ from __future__ import (absolute_import, division,
 
 import sys
 import os
+from functools import wraps
 # https://docs.python.org/2.6/library/internet.html
 # https://docs.python.org/2.6/library/cgi.html
 # http://www.tutorialspoint.com/python/python_cgi_programming.htm
@@ -147,6 +148,7 @@ Content-type: text/plain
                 return 'Hello World!'
         """
         def decorator(function):
+            @wraps(function)
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
             route_args.append(inner)
@@ -199,6 +201,7 @@ Content-type: text/plain
 
     def handler(self, alias, **handler_kwargs):
         def decorator(function):
+            @wraps(function)
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
             self.handlers[alias] = Handler(inner, **handler_kwargs)
