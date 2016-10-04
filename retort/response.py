@@ -89,17 +89,28 @@ class Response(object):
         """
         Output cgi.test() and other information.
         """
+        import io
         import platform
 
-        # TODO: cgi.test() prints directly, including the headers, so it must
-        #       come first; the normal headers have to be emptied; find a way
-        #       to return the content of cgi.test() instead of printing it
-        #       directly, like any other response function; note that the rest
-        #       of the body is already normally returned
-        self.headers.clear()
-        cgi.test()
+        html = """<!doctype html>
+<html>
+<head>
+<title>Test</title>
+</head>
+<body>
+"""
 
-        html = '<h3>Python sys.version</h3>\n'
+        # cgi.test() would print directly, including the headers, so its output
+        # must be redirected and stored in a stream
+        stream = io.BytesIO()
+        sys.stdout = stream
+        cgi.test()
+        sys.stdout = sys.__stdout__
+        # Remove cgi.test's original headers, since this response already has
+        # its own
+        html += stream.getvalue().partition('\n\n')[2]
+
+        html += '<h3>Python sys.version</h3>\n'
         html += '<div>{0}</div>\n'.format(sys.version)
 
         html += '<h3>PYTHONPATH:</h3>\n<ul>\n'
@@ -109,6 +120,8 @@ class Response(object):
 
         html += '<h3>Python platform.platform()</h3>\n'
         html += '<div>{0}</div>\n'.format(platform.platform())
+
+        html += '</body>\n</html>'
 
         return html
 
