@@ -42,8 +42,9 @@ class _Request(object):
         """
         Store the HTTP request data, e.g. GET or POST data.
         """
+        # TODO: Do something in case REDIRECT_URL is not defined?
         self.redirect_url = os.environ['REDIRECT_URL']
-        self.cookies = Cookie(os.environ['HTTP_COOKIE'])
+        self.cookies = Cookie(os.environ.get('HTTP_COOKIE', ''))
 
         # FieldStorage must be instantiated only once
         self.form = cgi.FieldStorage(
