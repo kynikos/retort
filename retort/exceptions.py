@@ -30,11 +30,3 @@ class RetortError(Exception):
 
 class ExistingSessionError(RetortError):
     pass
-
-
-class UnreadableDatabaseError(RetortError):
-    pass
-
-
-class UnwritableDatabaseError(RetortError):
-    pass
