@@ -41,6 +41,10 @@ class TokenJsonSession(Session):
     def __init__(self, db_path, domain, lifespan, path='/', secure=True,
                  httponly=True, cookie_name='RetortSessionID',
                  unidentified_diversion=None, autoextend=False):
+        """
+        Warning: using JSON files is not recommended in case of high access
+        concurrency! Use a more proper database in those cases.
+        """
         # For performance, do only what's strictly necessary to configure
         # the object, and leave everything else to process_request, since
         # another session object may be used depending on the matched url,
