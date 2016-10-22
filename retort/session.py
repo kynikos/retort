@@ -115,7 +115,7 @@ class TokenSQLiteSession(Session):
 
     def _identify(self):
         try:
-            session_id = self.app.request.cookies[self._cookie_name]
+            session_id = self.app.request.cookies[self._cookie_name].value
         except KeyError:
             return False
 
@@ -183,7 +183,7 @@ class TokenSQLiteSession(Session):
         if not self.user:
             return False
 
-        self._delete_session(self, self.id)
+        self._delete_session(self.id)
 
         self.id = None
         self.expires = None
