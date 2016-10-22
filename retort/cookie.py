@@ -32,29 +32,22 @@ from datetime import datetime, timedelta
 
 
 class Cookie(SimpleCookie):
-    def add(self, name, value, domain=None, path=None, lifespan=None,
+    def add(self, name, value, domain=None, path=None, expires=None,
             secure=True, httponly=True):
         self[name] = value
         if domain:
             self[name]['domain'] = domain
         if path:
             self[name]['path'] = path
-        if lifespan:
-            expires = self.set_lifespan(name, lifespan)
-        else:
-            expires = None
+        if expires:
+            self.store_expires(name, expires)
         if secure:
             self[name]['secure'] = '1'
         if httponly:
             self[name]['httponly'] = '1'
 
-        return expires
-
-    def set_lifespan(self, name, lifespan):
-        expiry = datetime.utcnow() + timedelta(seconds=lifespan)
-        expires = expiry.strftime("%a, %d %b %Y %H:%M:%S GMT")
-        self[name]['expires'] = expires
-        return expires
+    def store_expires(self, name, expires):
+        self[name]['expires'] = expires.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     def expire(self, name):
-        self.set_lifespan(name, -86400)
+        self.store_expires(name, datetime.utcnow() + timedelta(days=-1))

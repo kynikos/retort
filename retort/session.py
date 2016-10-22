@@ -39,21 +39,27 @@ class NullSession(Session):
 class TokenSQLiteSession(Session):
     # Use SQLite, not just a text file (e.g. JSON) because of concurrency
     # problems!
-    def __init__(self, db_path, domain, lifespan, path='/', secure=True,
+    def __init__(self, db_path, domain, lifetime, path='/', secure=True,
                  httponly=True, cookie_name='RetortSessionID',
-                 unidentified_diversion=None, autoextend=False):
+                 session_cookie=True, unidentified_diversion=None,
+                 autoextend=False):
         # For performance, do only what's strictly necessary to configure
         # the object, and leave everything else to process_request, since
         # another session object may be used depending on the matched url,
         # so this would become useless
         super(TokenSQLiteSession, self).__init__()
         self._db_path = db_path
+        # Note how lifetme refers only to the expiry of the session on the
+        # server; the cookie may or may not correspond, also because it may
+        # be a session cookie, which doesn't have an expires value; on the
+        # server, though, every session must always have an expiry date
+        self._lifetime = lifetime
         self._cookie_domain = domain
-        self._cookie_lifespan = lifespan
         self._cookie_path = path
         self._cookie_secure = secure
         self._cookie_httponly = httponly
         self._cookie_name = cookie_name
+        self._session_cookie = session_cookie
         self._unidentified_diversion = unidentified_diversion
         self.autoextend = autoextend
 
@@ -64,7 +70,7 @@ class TokenSQLiteSession(Session):
         #       of the primary key uniqueness (see comment when creating
         #       the uuid further below)...
         cur.execute('''CREATE TABLE Sessions (id TEXT PRIMARY KEY,
-                                              expires TEXT NOT NULL,
+                                              expiry TEXT NOT NULL,
                                               user TEXT NOT NULL,
                                               data TEXT)''')
         cur.close()
@@ -97,21 +103,28 @@ class TokenSQLiteSession(Session):
         self._db_conn.row_factory = dict_factory
 
         self.id = None
-        self.expires = None
+        # self.expiry is when the session expires on the *server*
+        self.expiry = None
         self.user = None
         self.data = None
 
         if not self._identify() and self._unidentified_diversion:
             self._unidentified_diversion.serve()
 
-    def _set_cookie(self, session_id, lifespan=None):
-        return self.app.response.cookies.add(
+    def _set_cookie(self, session_id, expires=None):
+        self.app.response.cookies.add(
                     self._cookie_name, session_id,
                     domain=self._cookie_domain,
                     path=self._cookie_path,
-                    lifespan=lifespan or self._cookie_lifespan,
+                    expires=expires,
                     secure=self._cookie_secure,
                     httponly=self._cookie_httponly)
+
+    def _parse_expiry(self, expirystr):
+        return datetime.strptime(expirystr, "%Y-%m-%dT%H:%M:%SZ")
+
+    def _format_expiry(self, expiry):
+            return expiry.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def _identify(self):
         try:
@@ -119,29 +132,36 @@ class TokenSQLiteSession(Session):
         except KeyError:
             return False
 
-        cur = self._db_conn.execute('''SELECT expires, user, data FROM Sessions
+        cur = self._db_conn.execute('''SELECT expiry, user, data FROM Sessions
                                     WHERE id=? LIMIT 1''', (session_id, ))
         row = cur.fetchone()
         if not row:
             return False
 
-        if self._delete_expired_session(session_id, row['expires']):
+        expiry = self._parse_expiry(row['expiry'])
+
+        if self._delete_expired_session(session_id, expiry):
             return False
 
+        if self.autoextend:
+            expiry = datetime.utcnow() + timedelta(seconds=self._lifetime)
+            self._db_conn.execute('''UPDATE Sessions SET expiry=?
+                                  WHERE id=?''',
+                                  (self._format_expiry(expiry), session_id))
+            self._db_conn.commit()
+
+            if not self._session_cookie:
+                self._set_cookie(session_id, expires=expiry)
+
         self.id = session_id
-        self.expires = row['expires']
+        # self.expiry is when the session expires on the *server*
+        self.expiry = expiry
         self.user = row['user']
         self.data = row['data']
 
-        if self.autoextend:
-            self._db_conn.execute('''UPDATE Sessions SET expires=?
-                                  WHERE id=?''',
-                                  (self._set_cookie(session_id), session_id))
-            self._db_conn.commit()
-
         return True
 
-    def initiate(self, user, override=False, lifespan=None):
+    def initiate(self, user, override=False):
         if self.user:
             if override:
                 self.terminate()
@@ -153,31 +173,37 @@ class TokenSQLiteSession(Session):
         # session_id = uuid.uuid4().int
         session_id = uuid.uuid4().hex
 
-        expires = self._set_cookie(session_id, lifespan=lifespan)
+        # TODO: Currently data is unused
         data = None
 
-        self._db_conn.execute('''INSERT INTO Sessions (id, expires, user, data)
-                              VALUES (?, ?, ?, ?)''',
-                              (session_id, expires, user, data))
-
-        # Check the database for one expired sessions and delete it (prevent
-        # memory leaks)
-        cur = self._db_conn.execute('SELECT id, expires FROM Sessions')
-        for row in cur:
-            if self._delete_expired_session(row['id'], row['expires']):
-                # Deleting one session is enough at preventing memory leaks,
-                # since initiate() only adds one more entry
-                # This is also extremely important, because otherwise it's not
-                # safe to loop on the keys of self._dbdata['id_to_data'] and
-                # remove them in the loop itself (I should make a list of them)
-                break
-
         self.id = session_id
-        self.expires = expires
+        # self.expiry is when the session expires on the *server*
+        self.expiry = datetime.utcnow() + timedelta(seconds=self._lifetime)
         self.user = user
         self.data = data
 
+        self._db_conn.execute('''INSERT INTO Sessions (id, expiry, user, data)
+                              VALUES (?, ?, ?, ?)''',
+                              (session_id, self._format_expiry(self.expiry),
+                               user, data))
         self._db_conn.commit()
+
+        self._set_cookie(session_id,
+                         expires=None if self._session_cookie else self.expiry)
+
+        # Check the database for one expired sessions and delete it (prevent
+        # memory leaks)
+        cur = self._db_conn.execute('SELECT id, expiry FROM Sessions')
+        for row in cur:
+            if self._delete_expired_session(
+                                row['id'], self._parse_expiry(row['expiry'])):
+                # Deleting one session is enough at preventing memory leaks,
+                # since initiate() only adds one more entry
+                # Breaking is also extremely important, because otherwise it's
+                # not safe to loop on the keys of self._dbdata['id_to_data']
+                # and remove them in the loop itself (I should make a list of
+                # them)
+                break
 
     def terminate(self):
         if not self.user:
@@ -186,23 +212,34 @@ class TokenSQLiteSession(Session):
         self._delete_session(self.id)
 
         self.id = None
-        self.expires = None
+        # self.expiry is when the session expires on the *server*
+        self.expiry = None
         self.user = None
         self.data = None
 
-        self.app.response.cookies.expire(self._cookie_name)
+        try:
+            self.app.response.cookies.expire(self._cookie_name)
+        except KeyError:
+            # If self._session_cookie is True, the response cookie may have not
+            # been set for this response
+            pass
 
-    def _delete_expired_session(self, session_id, expires):
+    def _delete_expired_session(self, session_id, expiry):
+        # Note that even though this is an object's method, it doesn't
+        # necessarily act on the object's session: it uses self only to reach
+        # the database connection
         # This compares the expiry date in the session file, not in the cookie,
         # however the date format is exactly the same; also, the date is saved
         # in GMT (i.e. UTC)
-        if datetime.strptime(expires, "%a, %d %b %Y %H:%M:%S %Z"
-                             ) < datetime.utcnow():
+        if expiry < datetime.utcnow():
             self._delete_session(session_id)
             return True
         return False
 
     def _delete_session(self, session_id):
+        # Note that even though this is an object's method, it doesn't
+        # necessarily act on the object's session: it uses self only to reach
+        # the database connection
         self._db_conn.execute('DELETE FROM Sessions WHERE id=?',
                               (session_id, ))
         self._db_conn.commit()
