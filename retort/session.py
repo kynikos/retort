@@ -80,7 +80,19 @@ class TokenSQLiteSession(Session):
         from datetime import datetime, timedelta
 
         self.app = app
+
         self._db_conn = sqlite3.connect(self._db_path)
+        # TODO: Investigate why sqlite3.Row doesn't work (doesn't like
+        #       row indices to be unicode strings...)
+        # self._db_conn.row_factory = sqlite3.Row
+
+        def dict_factory(cursor, row):
+            d = {}
+            for idx, col in enumerate(cursor.description):
+                d[col[0]] = row[idx]
+            return d
+        self._db_conn.row_factory = dict_factory
+
         self.id = None
         self.expires = None
         self.user = None
