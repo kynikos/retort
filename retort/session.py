@@ -60,7 +60,10 @@ class TokenSQLiteSession(Session):
     def init_database(self):
         conn = sqlite3.connect(self._db_path)
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE Sessions (id INTEGER PRIMARY KEY,
+        # TODO: For some reason using INTEGER for 'id' results in violations
+        #       of the primary key uniqueness (see comment when creating
+        #       the uuid further below)...
+        cur.execute('''CREATE TABLE Sessions (id TEXT PRIMARY KEY,
                                               expires TEXT NOT NULL,
                                               user TEXT NOT NULL,
                                               data TEXT)''')
@@ -145,7 +148,10 @@ class TokenSQLiteSession(Session):
             else:
                 raise ExistingSessionError()
 
-        session_id = uuid.uuid4()
+        # TODO: For some reason using integers results in a violation of the
+        #       primary key uniqueness...
+        # session_id = uuid.uuid4().int
+        session_id = uuid.uuid4().hex
 
         expires = self._set_cookie(session_id, lifespan=lifespan)
         data = None
