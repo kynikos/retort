@@ -61,7 +61,8 @@ class Handler(object):
 
 class _Route(Handler):
     def __init__(self, handler, session=None, response=None):
-        super(_Route, self).__init__(handler, session=None, response=None)
+        super(_Route, self).__init__(handler, session=session,
+                                     response=response)
 
     def attempt(self, app):
         self.serve_args = ()
@@ -81,7 +82,8 @@ class RouteDefault(_Route):
 
 class RouteExact(_Route):
     def __init__(self, url, handler, session=None, response=None):
-        super(RouteExact, self).__init__(handler, session=None, response=None)
+        super(RouteExact, self).__init__(handler, session=session,
+                                         response=response)
         self.url = url
 
     def test(self, app):

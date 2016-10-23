@@ -109,7 +109,7 @@ class TokenSQLiteSession(Session):
         self.data = None
 
         if not self._identify() and self._unidentified_diversion:
-            self._unidentified_diversion.serve()
+            self._unidentified_diversion.serve(app)
 
     def _set_cookie(self, session_id, expires=None):
         self.app.response.cookies.add(
