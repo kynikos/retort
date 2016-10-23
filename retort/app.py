@@ -50,22 +50,6 @@ class _Request(object):
         self.form = cgi.FieldStorage(
                 keep_blank_values=keep_blank_form_values)
 
-    def get_form(self):
-        """
-        TODO
-        """
-        # TODO: Write more specific methods
-        html = '<ul>Form:'
-        for name in self.form.keys():
-            # TODO: See also the getfirst() and getlist() methods
-            #       See the 'filename', 'file', 'type' and 'done' attributes
-            #       for uploads
-            #       Items can be either FieldStorage or MiniFieldStorage
-            html += "<li><b>{0}</b>: {1}</li>".format(
-                                            name, self.form.getvalue(name))
-        html += '</ul>'
-        return html
-
 
 class Retort(object):
     DEFAULT_SESSION = NullSession
