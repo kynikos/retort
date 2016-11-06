@@ -99,7 +99,7 @@ Content-type: text/plain
 
     def __init__(self, routes=[], handlers={}, keep_blank_form_values=False,
                  default_diversion=Diversion(404), default_session=None,
-                 default_response=None):
+                 default_response=None, cache=None):
         """
         The main application.
         """
@@ -111,6 +111,7 @@ Content-type: text/plain
         self.default_diversion = default_diversion
         self.set_default_session(default_session or self.DEFAULT_SESSION())
         self.set_default_response(default_response or self.DEFAULT_RESPONSE())
+        self.cache = cache
 
     def set_default_session(self, session):
         self._default_session = session
