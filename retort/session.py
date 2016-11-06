@@ -76,20 +76,19 @@ class TokenSQLiteSession(Session):
         cur.close()
         conn.close()
 
-    def inspect_db_table(self, header=True, data=False):
-        if header:
-            print('Content-type: text/plain\n')
+    def inspect_db_table(self, data=False):
         conn = sqlite3.connect(self._db_path)
         cur = conn.cursor()
         fields = ['id', 'expiry', 'user']
         if data:
             fields.append('data')
         cur.execute('''SELECT {0} FROM Sessions'''.format(', '.join(fields)))
-        print('\t'.join(fields))
+        text = ['\t'.join(fields)]
         for row in cur:
-            print('\t'.join(row))
+            text.append('\t'.join(row))
         cur.close()
         conn.close()
+        return '\n'.join(text)
 
     def process_request(self, app):
         # NullSession is the default, don't always import unneeded modules

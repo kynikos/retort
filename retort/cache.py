@@ -98,23 +98,22 @@ class SQLiteCache(Cache):
                                            creation TEXT NOT NULL)''')
         cur.close()
 
-    def inspect_db_table(self, header=True, value=False):
-        if header:
-            print('Content-type: text/plain\n')
+    def inspect_db_table(self, value=False):
         cur = self._db_conn.cursor()
         fields = ['key', 'creation']
         if value:
             fields.insert(1, 'value')
         cur.execute('''SELECT {0} FROM Cache'''.format(', '.join(fields)))
-        print('\t'.join(fields))
+        text = ['\t'.join(fields)]
         for row in cur:
-            print('\t'.join(row))
+            text.append('\t'.join(row))
         cur.close()
+        return '\n'.join(text)
 
     def set(self, key, value):
         creation = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         cur = self._db_conn.cursor()
-        cur.execute('''REPLACE INTO Cache (key, value, creation)
+        cur.execute('''INSERT OR REPLACE INTO Cache (key, value, creation)
                        VALUES (?, ?, ?)''', (key, value, creation))
         cur.close()
         self._db_conn.commit()
@@ -123,7 +122,7 @@ class SQLiteCache(Cache):
         creation = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         cur = self._db_conn.cursor()
         for key, value in key_to_value.items():
-            cur.execute('''REPLACE INTO Cache (key, value, creation)
+            cur.execute('''INSERT OR REPLACE INTO Cache (key, value, creation)
                            VALUES (?, ?, ?)''', (key, value, creation))
 
         cur.close()
