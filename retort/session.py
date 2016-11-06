@@ -25,6 +25,9 @@ from __future__ import (absolute_import, division,
 
 from .exceptions import ExistingSessionError
 
+# These modules/attributes are imported when needed later
+sqlite3, uuid, datetime, timedelta = None
+
 
 class Session(object):
     def process_request(self, app):
@@ -49,7 +52,7 @@ class TokenSQLiteSession(Session):
         # so this would become useless
         super(TokenSQLiteSession, self).__init__()
         self._db_path = db_path
-        # Note how lifetme refers only to the expiry of the session on the
+        # Note how lifetime refers only to the expiry of the session on the
         # server; the cookie may or may not correspond, also because it may
         # be a session cookie, which doesn't have an expires value; on the
         # server, though, every session must always have an expiry date
@@ -63,7 +66,7 @@ class TokenSQLiteSession(Session):
         self._unidentified_diversion = unidentified_diversion
         self.autoextend = autoextend
 
-    def init_database(self):
+    def create_db_table(self):
         conn = sqlite3.connect(self._db_path)
         cur = conn.cursor()
         # TODO: For some reason using INTEGER for 'id' results in violations
