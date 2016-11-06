@@ -23,9 +23,6 @@ from __future__ import (absolute_import, division,
 # TODO: Test builtins.super
 # from builtins import super
 
-# These modules/attributes are imported when needed later
-sqlite3, datetime, timedelta = None
-
 
 class Cache(object):
     def __init__(self, default_timeout=360):
@@ -47,9 +44,11 @@ class Cache(object):
     def get(self, key, max_age=None, refresh=None):
         raise NotImplementedError()
 
-    def get_dict(self, *keys, max_age=None, refresh=None):
+    def get_dict(self, *keys, **kwargs):
         """
         Useful if the refresh function refreshes multiple keys.
+
+        kwargs = {max_age: None, refresh: None}
         """
         raise NotImplementedError()
 
@@ -158,12 +157,14 @@ class SQLiteCache(Cache):
             self.set(key, value)
             return value
 
-    def get_dict(self, *keys, max_age=None, refresh=None):
+    def get_dict(self, *keys, **kwargs):
         # TODO: In theory there may be a race bug by which a server request
         #       could trigger a duplicate value refresh if it happens *while*
         #       this method is still running due to a previous, but
         #       quasi-simultaneous request; it would be harmless, however, only
         #       inefficient
+        max_age = kwargs.pop('max_age', None)
+        refresh = kwargs.pop('refresh', None)
 
         key_to_value = {}
         maxdelta = timedelta(seconds=self._default_timeout

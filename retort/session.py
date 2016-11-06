@@ -25,9 +25,6 @@ from __future__ import (absolute_import, division,
 
 from .exceptions import ExistingSessionError
 
-# These modules/attributes are imported when needed later
-sqlite3, uuid, datetime, timedelta = None
-
 
 class Session(object):
     def process_request(self, app):
