@@ -99,6 +99,21 @@ class SQLiteCache(Cache):
                                            creation TEXT NOT NULL)''')
         cur.close()
 
+    def inspect_db_table(self, header=True, value=False):
+        if header:
+            print('Content-type: text/plain\n')
+        conn = sqlite3.connect(self._db_path)
+        cur = conn.cursor()
+        fields = ['key', 'creation']
+        if value:
+            fields.insert(1, 'value')
+        cur.execute('''SELECT {} FROM Cache'''.format(', '.join(fields)))
+        print('\t'.join(fields))
+        for row in cur:
+            print('\t'.join(row))
+        cur.close()
+        conn.close()
+
     def set(self, key, value):
         creation = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         cur = self._db_conn.cursor()
