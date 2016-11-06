@@ -84,7 +84,7 @@ class TokenSQLiteSession(Session):
         fields = ['id', 'expiry', 'user']
         if data:
             fields.append('data')
-        cur.execute('''SELECT {} FROM Sessions'''.format(', '.join(fields)))
+        cur.execute('''SELECT {0} FROM Sessions'''.format(', '.join(fields)))
         print('\t'.join(fields))
         for row in cur:
             print('\t'.join(row))
