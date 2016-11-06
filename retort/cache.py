@@ -106,7 +106,7 @@ class SQLiteCache(Cache):
         cur.execute('''SELECT {0} FROM Cache'''.format(', '.join(fields)))
         text = ['\t'.join(fields)]
         for row in cur:
-            text.append('\t'.join(row))
+            text.append('\t'.join(row[field] for field in fields))
         cur.close()
         return '\n'.join(text)
 
@@ -194,10 +194,13 @@ class SQLiteCache(Cache):
 
     def clear(self, *keys):
         cur = self._db_conn.cursor()
-        cur.execute('''DELETE FROM Cache WHERE key IN ?''', (keys, ))
+        cur.execute('''DELETE FROM Cache WHERE key IN ({0})'''.format(
+                    ', '.join(keys)))
         cur.close()
+        self._db_conn.commit()
 
     def clear_all(self):
         cur = self._db_conn.cursor()
         cur.execute('''DELETE FROM Cache''')
         cur.close()
+        self._db_conn.commit()

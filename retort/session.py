@@ -85,7 +85,7 @@ class TokenSQLiteSession(Session):
         cur.execute('''SELECT {0} FROM Sessions'''.format(', '.join(fields)))
         text = ['\t'.join(fields)]
         for row in cur:
-            text.append('\t'.join(row))
+            text.append('\t'.join(str(val) for val in row))
         cur.close()
         conn.close()
         return '\n'.join(text)
