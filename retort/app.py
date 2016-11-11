@@ -204,6 +204,13 @@ Content-type: text/plain
     def divert(self, alias, *args, **kwargs):
         self.handlers[alias].serve(self, *args, **kwargs)
 
+    def redirect(self, url, status=302):
+        def function(app):
+            app.response.set_status(status)
+            app.response.set_location(url)
+            return ''
+        Handler(function).serve(self)
+
     def run(self):
         for route in self.routes:
             # If a route responds, it will exit the appliction by default, so

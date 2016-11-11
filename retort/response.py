@@ -68,6 +68,9 @@ class Response(object):
         self.status = code
         self.headers['Status'] = (http_status_codes[code], )
 
+    def set_location(self, location):
+        self.headers['Location'] = (location, )
+
     def set_content_type(self, content_type):
         self.content_type = content_type
         self.headers['Content-type'] = (content_type, )
