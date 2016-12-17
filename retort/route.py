@@ -65,7 +65,7 @@ class _Route(Handler):
                                      response=response)
 
     def attempt(self, app):
-        self.serve_args = ()
+        self.serve_args = []
         self.serve_kwargs = {}
         testres = self.test(app)
         if testres:
@@ -88,3 +88,20 @@ class RouteExact(_Route):
 
     def test(self, app):
         return self.url == app.request.redirect_url
+
+
+class RouteRegex(_Route):
+    def __init__(self, pattern, handler, flags=0, session=None, response=None):
+        super(RouteRegex, self).__init__(handler, session=session,
+                                         response=response)
+        self.pattern = pattern
+        self.flags = flags
+
+    def test(self, app):
+        import re
+        match = re.match(self.pattern, app.request.redirect_url,
+                         flags=self.flags)
+        if match:
+            self.serve_args.append(match)
+            return True
+        return False
