@@ -103,8 +103,7 @@ class SQLiteCache(Cache):
         fields = ['key', 'creation']
         if value:
             fields.insert(1, 'value')
-        cur.execute('''SELECT {0} FROM Cache'''.format(
-                                        ', '.join('?' * len(fields))), fields)
+        cur.execute('''SELECT {0} FROM Cache'''.format(', '.join(fields)))
         text = ['\t'.join(fields)]
         for row in cur:
             text.append('\t'.join(row[field] for field in fields))
