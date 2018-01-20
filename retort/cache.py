@@ -93,6 +93,7 @@ class SQLiteCache(Cache):
 
     def create_db_table(self):
         cur = self._db_conn.cursor()
+        cur.execute('PRAGMA auto_vacuum=FULL')
         cur.execute('''CREATE TABLE Cache (key TEXT PRIMARY KEY,
                                            value TEXT,
                                            creation TEXT NOT NULL)''')

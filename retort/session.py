@@ -66,6 +66,9 @@ class TokenSQLiteSession(Session):
     def create_db_table(self):
         conn = sqlite3.connect(self._db_path)
         cur = conn.cursor()
+
+        cur.execute('PRAGMA auto_vacuum=FULL')
+
         # TODO: For some reason using INTEGER for 'id' results in violations
         #       of the primary key uniqueness (see comment when creating
         #       the uuid further below)...
