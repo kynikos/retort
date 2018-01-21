@@ -15,7 +15,7 @@ setup(
         'Development Status :: 4 - Beta',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content :: CGI Tools/Libraries',  # noqa
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',  # noqa
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.6',
