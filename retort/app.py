@@ -137,8 +137,9 @@ Content-type: text/plain
             @wraps(function)
             def inner(*args, **kwargs):
                 return function(*args, **kwargs)
-            route_args.append(inner)
-            self.routes.append(RouteClass(*route_args, **route_kwargs))
+            lroute_args = list(route_args)
+            lroute_args.append(inner)
+            self.routes.append(RouteClass(*lroute_args, **route_kwargs))
             # TODO: Also register the routes in self.handlers; as an alias,
             #       maybe use the name of their function (as in Flask), or
             #       allow an optional 'alias' kwarg
