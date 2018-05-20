@@ -4,7 +4,7 @@ setup(
     # 'retort' was taken in October 2017 even though I made this library in
     # 2016; reminder to self, publish as soon as ready
     name='retort-cgi',
-    version='1.0.0',
+    version='1.0.1',
     description=('Lightweight Python CGI framework.'),
     long_description=('Lightweight Python CGI framework.'),
     url='https://github.com/kynikos/retort',
